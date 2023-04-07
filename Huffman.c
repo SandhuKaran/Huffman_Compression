@@ -107,3 +107,94 @@ huff_node_t *huff_build_tree(int *frequencies) {
     free(heap);
     return root;
 }
+
+void huff_build_codes(huff_code_t *codes, huff_node_t *node, char *buffer, int depth) {
+    if (node->left == NULL && node->right == NULL) {
+        codes[node->symbol].symbol = node->symbol;
+        codes[node->symbol].code = (char *) malloc((depth + 1) * sizeof(char));
+        strcpy(codes[node->symbol].code, buffer);
+        return;
+    }
+    buffer[depth] = '0';
+    buffer[depth + 1] = '\0';
+    huff_build_codes(codes, node->left, buffer, depth + 1);
+    buffer[depth] = '1';
+    buffer[depth + 1] = '\0';
+    huff_build_codes(codes, node->right, buffer, depth + 1);
+}
+
+void huff_compress_file(char *input_file, char *output_file, huff_code_t *codes) {
+    FILE *in_file = fopen(input_file, "rb");
+    if (in_file == NULL) {
+        fprintf(stderr, "Error: failed to open input file '%s'\n", input_file);
+        exit(1);
+    }
+    FILE *out_file = fopen(output_file, "wb");
+    if (out_file == NULL) {
+        fprintf(stderr, "Error: failed to open output file '%s'\n", output_file);
+        fclose(in_file);
+        exit(1);
+    }
+    char buffer[BUFFER_SIZE];
+    int bits_in_buffer = 0;
+    char bit_buffer = 0;
+    int c = fgetc(in_file);
+    while (c != EOF) {
+        char *code = codes[c].code;
+        for (int i = 0; i < strlen(code); i++) {
+            bit_buffer <<= 1;
+            if (code[i] == '1') bit_buffer |= 1;
+            bits_in_buffer++;
+            if (bits_in_buffer == 8) {
+                fputc(bit_buffer, out_file);
+                bit_buffer = 0;
+                bits_in_buffer = 0;
+            }
+        }
+        c = fgetc(in_file);
+    }
+    if (bits_in_buffer > 0) {
+        bit_buffer <<= (8 - bits_in_buffer);
+        fputc(bit_buffer, out_file);
+    }
+    fclose(in_file);
+    fclose(out_file);
+}
+
+void huff_decompress_file(char *input_file, char *output_file, huff_node_t *root) {
+    FILE *in_file = fopen(input_file, "rb");
+    if (in_file == NULL) {
+        fprintf(stderr, "Error: failed to open input file '%s'\n", input_file);
+        exit(1);
+    }
+    FILE *out_file = fopen(output_file, "wb");
+    if (out_file == NULL) {
+        fprintf(stderr, "Error: failed to open output file '%s'\n", output_file);
+        fclose(in_file);
+        exit(1);
+    }
+    huff_node_t *node = root;
+    int bits_left = 0;
+    char bit_buffer = 0;
+    int c = fgetc(in_file);
+    while (c != EOF) {
+        bit_buffer = c;
+        bits_left = 8;
+        while (bits_left > 0) {
+            if ((bit_buffer & 0x80) == 0x80) {
+                node = node->right;
+            } else {
+                node = node->left;
+            }
+            if (node->left == NULL && node->right == NULL) {
+                fputc(node->symbol, out_file);
+                node = root;
+            }
+            bit_buffer <<= 1;
+            bits_left--;
+        }
+        c = fgetc(in_file);
+    }
+    fclose(in_file);
+    fclose(out_file);
+}
