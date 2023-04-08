@@ -198,3 +198,29 @@ void huff_decompress_file(char *input_file, char *output_file, huff_node_t *root
     fclose(in_file);
     fclose(out_file);
 }
+
+
+int main(int argc, char **argv) {
+    if (argc < 3) {
+        printf("Usage: %s <input file> <output file>\n", argv[0]);
+        exit(1);
+    }
+    char *input_file = argv[1];
+    char *output_file = argv[2];
+    int frequencies[SYMBOL_COUNT] = {0};
+    huff_count_frequencies(input_file, frequencies);
+    huff_node_t *root = huff_build_tree(frequencies);
+    huff_code_t codes[SYMBOL_COUNT];
+    memset(codes, 0, sizeof(codes));
+    char buffer[BUFFER_SIZE];
+    huff_build_codes(codes, root, buffer, 0);
+    huff_compress_file(input_file, output_file, codes);
+    huff_decompress_file(output_file, "decompressed.bin", root);
+    free_huff_tree(root);
+    for (int i = 0; i < SYMBOL_COUNT; i++) {
+        if (codes[i].code != NULL) {
+            free(codes[i].code);
+        }
+    }
+    return 0;
+}
