@@ -1,6 +1,5 @@
 # Huffman_Compression
 
-
 This code defines functions to build a Huffman tree from the frequency counts of symbols in a file, 
 build a table of Huffman codes from the tree, 
 compress a file using the codes, 
